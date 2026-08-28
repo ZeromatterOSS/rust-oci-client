@@ -394,22 +394,17 @@ impl Client {
             .insert(registry.to_string(), auth);
     }
 
-    async fn is_stored_auth(&self, registry: &str) -> bool {
-        self.auth_store.read().await.contains_key(registry)
-    }
-
-    /// Store the authentication information for this registry if it's not already stored in the client.
-    ///
-    /// Most of the time, you don't need to call this method directly. It's called by other
-    /// methods (where you have to provide the authentication information as parameter).
-    ///
-    /// But if you want to pull/push a blob without calling any of the other methods first, which would
-    /// store the authentication information, you can call this method to store the authentication
-    /// information manually.
+    /// This method was updated in this fork to always store the auth. Caching
+    /// the auth for the lifetime of the client is a bug - if the first request
+    /// uses invalid auth then all subsequent requests will use the cached
+    /// invalid auth - even if updated credentials are provided. The quick fix
+    /// is to always write the auth to the store.
+    /// TODO: Remove the auth_store entirely. Caching the auth does not improve
+    /// performance - to the contrary it probably makes performance worse. The
+    /// only thing it provides is a convenient way of providing auth to all of
+    /// the methods without having to pass the auth as a parameter.
     pub async fn store_auth_if_needed(&self, registry: &str, auth: &RegistryAuth) {
-        if !self.is_stored_auth(registry).await {
-            self.store_auth(registry, auth.clone()).await;
-        }
+        self.store_auth(registry, auth.clone()).await;
     }
 
     /// Checks if we got a token, if we don't - create it and store it in cache.
